@@ -19,6 +19,7 @@ const commentSchema = mongoose.Schema(
       required: true,
     },
     content: String,
+    userPicturePath: String,
   },
   { timestamps: true }
 );

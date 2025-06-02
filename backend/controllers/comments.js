@@ -1,6 +1,6 @@
 import Comment from "../models/Comment.js";
 import User from "../models/User.js";
-
+import Post from "../models/Post.js";
 
 export const postComment = async (req, res) => {
   try {
@@ -14,9 +14,9 @@ export const postComment = async (req, res) => {
       lastName: user.lastName,
       postId,
       content,
+      userPicturePath: user.picturePath,
     });
 
-    
     await newComment.save();
 
     const commentData = {
@@ -26,6 +26,7 @@ export const postComment = async (req, res) => {
       lastName: user.lastName,
       content,
       createdAt: newComment.createdAt,
+      userPicturePath: user.picturePath,
     };
 
     const updatedPost = await Post.findByIdAndUpdate(
@@ -39,5 +40,25 @@ export const postComment = async (req, res) => {
   } catch (err) {
     console.error("Error in postComment:", err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+export const getPostComments = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const comments = await Comment.find({ postId }).sort({ createdAt: -1 });
+    res.status(200).json(comments);
+  } catch (err) {
+    res.status(404).json({ message: err.message });
+  }
+};
+
+export const getCommentCount = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const count = await Comment.countDocuments({ postId });
+    res.status(200).json({ count });
+  } catch (err) {
+    res.status(404).json({ message: err.message });
   }
 };

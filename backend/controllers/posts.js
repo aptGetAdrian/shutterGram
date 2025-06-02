@@ -14,6 +14,7 @@ export const createPost = async (req, res) => {
       userPicturePath: user.picturePath,
       picturePath,
       likes: {},
+      reports: {},
       comments: [],
     });
     await newPost.save();
@@ -27,13 +28,11 @@ export const createPost = async (req, res) => {
 
 export const getFeedPosts = async (req, res) => {
   try {
-
     const posts = await Post.find();
-
 
     const visiblePosts = posts.filter(post => {
       const reportCount = post.reports ? post.reports.size : 0;
-      return reportCount <= 5;
+      return reportCount <= 3;
     });
 
     const halfLifeHours = 24;                 
@@ -43,6 +42,7 @@ export const getFeedPosts = async (req, res) => {
     const result = visiblePosts.map((postDoc) => {
       const post = postDoc.toObject({ getters: true, versionKey: false });
       post.likes = post.likes ? Object.fromEntries(post.likes) : {};
+      post.reports = post.reports ? Object.fromEntries(post.reports) : {};
 
       const voteCount = Object.keys(post.likes).length;
       const ageHours = (now - new Date(post.createdAt).getTime()) / 36e5;
@@ -101,42 +101,21 @@ export const reportPost = async (req, res) => {
     const { id } = req.params;
     const { userId } = req.body;
 
-    //console.log("post: " + id);
-    //console.log("user: " + userId);
-
     const post = await Post.findById(id);
+    
+    if (!post.reports) {
+      post.reports = new Map();
+    }
 
     post.reports.set(userId, true);
 
-
     await post.save();
 
-    const posts = await Post.find();
+    const updatedPost = post.toObject({ getters: true });
+    updatedPost.likes = updatedPost.likes ? Object.fromEntries(updatedPost.likes) : {};
+    updatedPost.reports = updatedPost.reports ? Object.fromEntries(updatedPost.reports) : {};
 
-    const visiblePosts = posts.filter(post => {
-      const reportCount = post.reports ? post.reports.size : 0;
-      return reportCount <= 5;
-    });
-
-    const halfLifeHours = 24;                 
-    const lambda = Math.log(2) / halfLifeHours;
-    const now = Date.now();
-
-    const result = visiblePosts.map((postDoc) => {
-      const postTemp = postDoc.toObject({ getters: true, versionKey: false });
-      postTemp.likes = postTemp.likes ? Object.fromEntries(postTemp.likes) : {};
-
-      const voteCount = Object.keys(postTemp.likes).length;
-      const ageHours = (now - new Date(postTemp.createdAt).getTime()) / 36e5;
-
-      postTemp.score = voteCount * Math.exp(-lambda * ageHours);
-
-      return postTemp;
-    });
-
-    result.sort((a, b) => b.score - a.score);
-
-    res.status(200).json(result);
+    res.status(200).json(updatedPost);
   } catch (err) {
     res.status(404).json({ message: err.message });
   }
